@@ -163,7 +163,7 @@ const $=id=>document.getElementById(id);
 try{data=JSON.parse(localStorage.getItem("trinktagebuch")||"{}")}catch(e){data={}}
 function persist(){try{localStorage.setItem("trinktagebuch",JSON.stringify(data))}catch(e){}
 }
-const SB_URL="DEINE_SUPABASE_URL",SB_KEY="DEIN_SUPABASE_KEY";
+const SB_URL="https://ncgiikybiefqlvjjipvd.supabase.co/rest/v1/",SB_KEY="sb_publishable_n4IvWl48mushmhUISfHrZQ_MDOuqe5G";
 const CONF=!SB_URL.includes("DEINE");let uid=null,nick="",groups=[],curG=null;
 const esc=t=>String(t).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function totals(days,s,e){const t={};for(let d=new Date(s);d<=e;d.setDate(d.getDate()+1)){const en=days[key(d)];if(en)for(const k in en)t[k]=(t[k]||0)+en[k]}return t}
