@@ -88,6 +88,12 @@ input:focus{outline:2px solid var(--accent2)}
 .tabs{overflow-x:auto}.tabs button{white-space:nowrap}
 .mem{display:flex;justify-content:space-between;gap:8px;padding:10px 0;border-top:1px solid var(--line);font-size:.92rem}
 .mem span{color:var(--muted);text-align:right}
+details.mdet{border-top:1px solid var(--line);padding:2px 0 10px}
+.mdet summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:44px;font-size:.92rem}
+.mdet summary::-webkit-details-marker{display:none}
+.mdet summary span{color:var(--muted);text-align:right}
+.mdet .lgrid{margin:8px 0 0}
+.sub{display:block;font-size:.75rem;font-weight:400;opacity:.85;margin-top:2px}
 </style>
 </head>
 <body>
@@ -326,18 +332,26 @@ function renderFriends(){
   +(curG?'<div class="grp"><div class="seg">'+[["week","Woche"],["month","Monat"],["year","Jahr"]].map(x=>'<button data-act="per" data-p="'+x[0]+'" class="'+(period===x[0]?"on":"")+'">'+x[1]+'</button>').join("")+'</div><p class="muted">Einladungscode: <b>'+esc(curG.id)+'</b></p><div id="gstats"></div></div>':"");
   if(curG)renderGroup();
 }
+function memberHtml(r){
+  const t=r.t,sz=id=>GROUPS.find(g=>g.id===id).sizes.map(z=>(t[id+"_"+z[0]]||0)+"× "+z[1]).join(" · ");
+  const box=(n,v,sub)=>'<div class="liters">'+n+'<b>'+v+'</b>'+(sub?'<span class="sub">'+sub+'</span>':"")+'</div>';
+  const c=id=>t[id+"_x"]||0;
+  return '<details class="mdet"><summary><b>'+esc(r.name)+(r.k===uid?" (du)":"")+'</b><span>Bier '+fmt(litOf(t,"bier"))+' L · Cider '+fmt(litOf(t,"cider"))+' L</span></summary>'
+   +'<div class="lgrid">'+box("Bier",fmt(litOf(t,"bier"))+" L",sz("bier"))+box("Cider",fmt(litOf(t,"cider"))+" L",sz("cider"))+'</div>'
+   +'<div class="lgrid three">'+box("Jäger",c("jaeger"))+box("Mischen",c("mix"))+box("Shots",c("shots"))+'</div></details>';
+}
 async function renderGroup(){
   const box=$("gstats");if(!box||!curG)return;
   const{s,e,label}=range();box.textContent="Lade…";
   try{
     const mem=await api("members?code=eq."+enc(curG.id)+"&select=nick_key"),ks=mem.map(x=>x.nick_key),list=ks.map(enc).join(",");
     const[us,es]=await Promise.all([api("users?key=in.("+list+")&select=key,nick"),api("entries?nick_key=in.("+list+")&day=gte."+key(s)+"&day=lte."+key(e)+"&select=nick_key,day,counts")]);
-    const rs=ks.map(k=>{const days={};es.filter(x=>x.nick_key===k).forEach(x=>days[x.day]=x.counts);const u=us.find(x=>x.key===k);return{name:u?u.nick:k,t:totals(days,s,e)}});
+    const rs=ks.map(k=>{const days={};es.filter(x=>x.nick_key===k).forEach(x=>days[x.day]=x.counts);const u=us.find(x=>x.key===k);return{k:k,name:u?u.nick:k,t:totals(days,s,e)}});
     const sum={};rs.forEach(r=>{for(const k in r.t)sum[k]=(sum[k]||0)+r.t[k]});
     const sh=(id,n)=>'<div class="liters">'+n+'<b>'+(sum[id+"_x"]||0)+'</b></div>';
     box.innerHTML='<p class="muted">'+esc(label)+' · '+rs.length+' Mitglieder</p><div class="lgrid"><div class="liters">Bier gesamt<b>'+fmt(litOf(sum,"bier"))+' L</b></div><div class="liters">Cider gesamt<b>'+fmt(litOf(sum,"cider"))+' L</b></div></div>'
     +'<div class="lgrid three">'+sh("jaeger","Jäger")+sh("mix","Mischen")+sh("shots","Shots")+'</div>'
-    +rs.map(r=>'<div class="mem"><b>'+esc(r.name)+'</b><span>Bier '+fmt(litOf(r.t,"bier"))+' L · Cider '+fmt(litOf(r.t,"cider"))+' L · Shots '+((r.t.jaeger_x||0)+(r.t.shots_x||0))+'</span></div>').join("");
+    +rs.map(r=>memberHtml(r)).join("");
   }catch(err){box.textContent="Daten konnten nicht geladen werden."}
 }
 $("friends").onclick=async ev=>{
