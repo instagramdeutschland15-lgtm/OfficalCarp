@@ -302,7 +302,7 @@ async function login(create){
     try{localStorage.setItem("td_user",JSON.stringify({uid:uid,nick:nick}))}catch(e){}
     $("nickOv").classList.remove("open");
     await loadData(create);await loadGroups();renderFriends();
-  }catch(e){err.textContent="Verbindung fehlgeschlagen. Sind URL und Key eingetragen?"}
+  }catch(e){err.textContent="Fehler: "+String(e.message||e).slice(0,200)}
 }
 $("nickLogin").onclick=()=>login(false);
 $("nickReg").onclick=()=>login(true);
