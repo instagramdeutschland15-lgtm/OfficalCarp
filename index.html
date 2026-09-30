@@ -94,6 +94,7 @@ details.mdet{border-top:1px solid var(--line);padding:2px 0 10px}
 .mdet summary span{color:var(--muted);text-align:right}
 .mdet .lgrid{margin:8px 0 0}
 .sub{display:block;font-size:.75rem;font-weight:400;opacity:.85;margin-top:2px}
+.sm.danger{background:#b3261e;border-color:#b3261e;margin-top:10px;width:100%}
 </style>
 </head>
 <body>
@@ -290,8 +291,8 @@ async function loadData(upload){
 }
 async function loadGroups(){
   const m=await api("members?nick_key=eq."+enc(uid)+"&select=code");
-  const gs=m.length?await api("groups?code=in.("+m.map(x=>enc(x.code)).join(",")+")&select=code,name"):[];
-  groups=gs.map(g=>({id:g.code,name:g.name}));
+  const gs=m.length?await api("groups?code=in.("+m.map(x=>enc(x.code)).join(",")+")&select=code,name,owner"):[];
+  groups=gs.map(g=>({id:g.code,name:g.name,owner:g.owner}));
   curG=groups.find(g=>curG&&g.id===curG.id)||groups[0]||null;
 }
 async function login(create){
@@ -336,9 +337,10 @@ function memberHtml(r){
   const t=r.t,sz=id=>GROUPS.find(g=>g.id===id).sizes.map(z=>(t[id+"_"+z[0]]||0)+"× "+z[1]).join(" · ");
   const box=(n,v,sub)=>'<div class="liters">'+n+'<b>'+v+'</b>'+(sub?'<span class="sub">'+sub+'</span>':"")+'</div>';
   const c=id=>t[id+"_x"]||0;
-  return '<details class="mdet"><summary><b>'+esc(r.name)+(r.k===uid?" (du)":"")+'</b><span>Bier '+fmt(litOf(t,"bier"))+' L · Cider '+fmt(litOf(t,"cider"))+' L</span></summary>'
+  return '<details class="mdet"><summary><b>'+esc(r.name)+(r.k===uid?" (du)":"")+(curG.owner===r.k?" · Ersteller":"")+'</b><span>Bier '+fmt(litOf(t,"bier"))+' L · Cider '+fmt(litOf(t,"cider"))+' L</span></summary>'
    +'<div class="lgrid">'+box("Bier",fmt(litOf(t,"bier"))+" L",sz("bier"))+box("Cider",fmt(litOf(t,"cider"))+" L",sz("cider"))+'</div>'
-   +'<div class="lgrid three">'+box("Jäger",c("jaeger"))+box("Mischen",c("mix"))+box("Shots",c("shots"))+'</div></details>';
+   +'<div class="lgrid three">'+box("Jäger",c("jaeger"))+box("Mischen",c("mix"))+box("Shots",c("shots"))+'</div>'
+   +(curG.owner===uid&&r.k!==uid?'<button class="sm danger" data-act="kick" data-k="'+esc(r.k)+'" data-n="'+esc(r.name)+'">'+esc(r.name)+' aus der Gruppe entfernen</button>':"")+'</details>';
 }
 async function renderGroup(){
   const box=$("gstats");if(!box||!curG)return;
@@ -359,12 +361,18 @@ $("friends").onclick=async ev=>{
   const a=b.dataset.act,msg=t=>{const m=$("gmsg");if(m)m.textContent=t};
   try{
     if(a==="logout"){uid=null;nick="";groups=[];curG=null;data={};persist();try{localStorage.removeItem("td_user")}catch(e){}renderCal();renderStats();renderFriends();$("nickIn").value="";$("nickOv").classList.add("open")}
+    else if(a==="kick"){
+      if(!curG||curG.owner!==uid)return;
+      if(!confirm(b.dataset.n+" wirklich aus der Gruppe entfernen?"))return;
+      await api("members?code=eq."+enc(curG.id)+"&nick_key=eq."+enc(b.dataset.k),{method:"DELETE"});
+      renderFriends();
+    }
     else if(a==="grp"){curG=groups.find(g=>g.id===b.dataset.c);renderFriends()}
     else if(a==="per"){period=b.dataset.p;offset=0;[...$("seg").children].forEach(x=>x.classList.toggle("on",x.dataset.p===period));renderFriends()}
     else if(a==="create"){
       const n=$("gName").value.trim();if(!n){msg("Bitte einen Gruppennamen eingeben.");return}
       const al="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";let c="";for(let i=0;i<6;i++)c+=al[Math.floor(Math.random()*al.length)];
-      await api("groups",{method:"POST",headers:{Prefer:"return=minimal"},body:{code:c,name:n}});
+      await api("groups",{method:"POST",headers:{Prefer:"return=minimal"},body:{code:c,name:n,owner:uid}});
       await api("members",{method:"POST",headers:UPS,body:{code:c,nick_key:uid}});
       await loadGroups();curG=groups.find(g=>g.id===c)||curG;renderFriends();
     }else if(a==="join"){
