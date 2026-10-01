@@ -10,6 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Trinktagebuch">
 <meta name="format-detection" content="telephone=no">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8D%BA%3C/text%3E%3C/svg%3E">
 <title>Trinktagebuch</title>
 <style>
 :root{--bg:#0a1330;--panel:#111e47;--panel2:#172757;--line:#243673;--text:#e8edff;--muted:#8fa0d6;--accent:#4d8dff;--accent2:#7fb0ff;--on:#fff;
@@ -105,12 +106,17 @@ details.mdet{border-top:1px solid var(--line);padding:2px 0 10px}
 .lbrow.me{color:var(--accent2)}
 .rk{min-width:34px;font-size:1.2rem;text-align:center}
 .lbrow b{flex:1}.lbrow small{color:var(--muted);font-weight:400}
+.brand{display:flex;align-items:center;gap:10px}
+.tap{cursor:pointer;position:relative}
+.tap::after{content:"＋";position:absolute;top:8px;right:12px;opacity:.7;font-size:1.1rem}
+.tap:active{transform:scale(.98)}
+.modal input[type=date]{margin:6px 0 4px}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="top">
-    <h1 id="title">Statistiken</h1>
+    <div class="brand"><svg class="logo" viewBox="0 0 40 40" width="40" height="40" role="img" aria-label="Trinktagebuch"><defs><linearGradient id="mugGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd25a"/><stop offset="1" stop-color="#e08a00"/></linearGradient></defs><path d="M30 15h3.5a3.5 3.5 0 0 1 3.5 3.5v6a3.5 3.5 0 0 1-3.5 3.5H30" fill="none" stroke="#cfe0ff" stroke-width="2.4" stroke-linecap="round"/><path d="M9 13h21v19a3 3 0 0 1-3 3H12a3 3 0 0 1-3-3z" fill="url(#mugGrad)" stroke="#cfe0ff" stroke-width="1.6"/><path d="M14 19v12M19.5 19v12M25 19v12" stroke="#fff" stroke-opacity=".35" stroke-width="1.4" stroke-linecap="round"/><g fill="#fff"><circle cx="11.5" cy="11" r="4.2"/><circle cx="17" cy="8.5" r="4.8"/><circle cx="23.5" cy="8.8" r="4.6"/><circle cx="28" cy="11.5" r="3.6"/></g><path d="M9.5 13.2h20" stroke="#e9eefc" stroke-width="2"/></svg><h1 id="title">Statistiken</h1></div>
     <button class="burger" id="burger" aria-label="Menü" aria-expanded="false"><i></i><i></i><i></i></button>
     <nav class="menu" id="menu">
       <button data-v="stats" class="on">Statistiken</button>
@@ -156,6 +162,12 @@ details.mdet{border-top:1px solid var(--line);padding:2px 0 10px}
   <p class="muted" id="nickErr"></p>
   <div class="actions"><button id="nickLogin">Anmelden</button><button class="save" id="nickReg">Registrieren</button></div>
 </div></div>
+<div class="overlay" id="pOv" role="dialog" aria-modal="true" aria-labelledby="pTitle"><div class="modal">
+  <h2 id="pTitle"></h2>
+  <input type="date" id="pDate" aria-label="Tag wählen">
+  <div id="pForm"></div>
+  <div class="actions"><button id="pCancel">Abbrechen</button><button class="save" id="pSave">Speichern</button></div>
+</div></div>
 <div class="overlay" id="ov" role="dialog" aria-modal="true" aria-labelledby="mTitle">
   <div class="modal">
     <h2 id="mTitle"></h2>
@@ -184,7 +196,7 @@ try{data=JSON.parse(localStorage.getItem("trinktagebuch")||"{}")}catch(e){data={
 function persist(){try{localStorage.setItem("trinktagebuch",JSON.stringify(data))}catch(e){}
 }
 const SB_URL="https://ncgiikybiefqlvjjipvd.supabase.co",SB_KEY="sb_publishable_n4IvWl48mushmhUISfHrZQ_MDOuqe5G";
-const CONF=!SB_URL.includes("DEINE");let uid=null,nick="",groups=[],curG=null,friends=[],lbSrc="friends",lbMetric="total";
+const CONF=!SB_URL.includes("DEINE");let uid=null,nick="",groups=[],curG=null,friends=[],reqIn=[],reqOut=[],fTab="f",lbSrc="friends",lbMetric="total";
 const esc=t=>String(t).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function totals(days,s,e){const t={};for(let d=new Date(s);d<=e;d.setDate(d.getDate()+1)){const en=days[key(d)];if(en)for(const k in en)t[k]=(t[k]||0)+en[k]}return t}
 function litOf(t,id){return GROUPS.find(g=>g.id===id).sizes.reduce((a,z)=>a+(t[id+"_"+z[0]]||0)*z[2],0)}
@@ -224,7 +236,7 @@ function range(){
 }
 
 const MI=`<span class="mi"><img src="monster-logo.png" alt="" onload="this.nextElementSibling.style.display='none'" onerror="this.remove()"><svg viewBox="0 0 24 28" width="22" height="26" aria-hidden="true"><rect x="5" y="4" width="14" height="21" rx="3" fill="#111" stroke="#95d600" stroke-width="1.5"/><rect x="5" y="2" width="14" height="4" rx="2" fill="#95d600"/><path d="M13 8l-4 7h3l-1 5 4-8h-3z" fill="#95d600"/></svg></span>`;
-const monBox=(v,sub)=>'<div class="liters soft wide">'+MI+' Monster (alkoholfrei)<b>'+v+'</b>'+(sub?'<span class="sub">'+sub+'</span>':"")+'</div>';
+const monBox=(v,sub,tap)=>'<div class="liters soft wide'+(tap?' tap" data-g="monster':'')+'">'+MI+' Monster<b>'+v+'</b>'+(sub?'<span class="sub">'+sub+'</span>':"")+'</div>';
 function renderStats(){
   const{s,e,label}=range();$("rangeLabel").textContent=label;
   const tot=totals(data,s,e);
@@ -237,9 +249,9 @@ function renderStats(){
     const det=g.sizes.length>1?parts.map(p=>p.n+"× "+p.z[1]).join(", "):g.sizes[0][1];
     return '<div class="stat"><div>'+g.name+'<span>'+det+'</span></div><strong>'+n+'</strong></div>';
   }).join("");
-  const top=tab==="drink"?'<div class="lgrid"><div class="liters">Bier insgesamt<b>'+fmt(lit("bier"))+' L</b></div><div class="liters">Cider insgesamt<b>'+fmt(lit("cider"))+' L</b></div>'+monBox(fmt(lit("monster"))+" L")+'</div>':"";
+  const top=tab==="drink"?'<div class="lgrid"><div class="liters tap" data-g="bier">Bier insgesamt<b>'+fmt(lit("bier"))+' L</b></div><div class="liters tap" data-g="cider">Cider insgesamt<b>'+fmt(lit("cider"))+' L</b></div>'+monBox(fmt(lit("monster"))+" L","",true)+'</div>':"";
   if(tab==="other"){
-    const box=id=>{const g=GROUPS.find(x=>x.id===id),n=tot[id+"_x"]||0;return '<div class="liters">'+g.name+'<b>'+n+' <small>'+g.sizes[0][1]+'</small></b></div>'};
+    const box=id=>{const g=GROUPS.find(x=>x.id===id),n=tot[id+"_x"]||0;return '<div class="liters tap" data-g="'+id+'">'+g.name+'<b>'+n+' <small>'+g.sizes[0][1]+'</small></b></div>'};
     $("stats").innerHTML='<div class="lgrid three">'+ids.map(box).join("")+'</div>';
     return;
   }
@@ -249,7 +261,7 @@ function renderStats(){
 function openDay(dt){
   editing=key(dt);draft=Object.assign({},data[editing]||{});
   $("mTitle").textContent=dt.toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
-  $("form").innerHTML=GROUPS.map(g=>'<div class="grp"><h3>'+g.name+(g.soft?'<span class="tagsoft">alkoholfrei</span>':'')+'</h3>'+g.sizes.map(z=>{
+  $("form").innerHTML=GROUPS.map(g=>'<div class="grp"><h3>'+g.name+'</h3>'+g.sizes.map(z=>{
     const k=g.id+"_"+z[0];
     return '<div class="row"><span>'+z[1]+'</span><div class="step"><button data-k="'+k+'" data-d="-1" aria-label="Weniger">−</button><output id="o_'+k+'">'+(draft[k]||0)+'</output><button data-k="'+k+'" data-d="1" aria-label="Mehr">+</button></div></div>';
   }).join("")+'</div>').join("");
@@ -291,7 +303,7 @@ $("menu").onclick=e=>{
   ["cal","stats","friends","lb"].forEach(x=>$("v-"+x).classList.toggle("on",x===v));
   [...$("menu").children].forEach(x=>x.classList.toggle("on",x===b));
   $("title").textContent=b.textContent;setMenu(false);
-  if(v==="stats")renderStats();if(v==="friends")renderFriends();if(v==="lb")renderLb();
+  if(v==="stats")renderStats();if(v==="friends"){renderFriends();if(uid)loadFriends().then(renderFriends).catch(()=>{})}if(v==="lb")renderLb();
 };
 const enc=encodeURIComponent,UPS={Prefer:"resolution=merge-duplicates,return=minimal"};
 async function api(path,o){o=o||{};
@@ -341,14 +353,22 @@ function renderFriends(){
   const f=$("friends");
   if(!CONF){f.innerHTML='<h2>Freunde</h2><p class="muted">Supabase ist noch nicht verbunden. Trage oben im Code SB_URL und SB_KEY ein, dann kannst du dich anmelden und Gruppen nutzen.</p>';return}
   if(!uid){f.innerHTML='<p class="muted">Nicht angemeldet.</p>';return}
-  f.innerHTML='<h2>Konto</h2><div class="row"><span>Angemeldet als <b>'+esc(nick)+'</b></span><button class="sm" data-act="logout">Abmelden</button></div>'
-  +'<div class="grp"><h2>Einzelne Freunde</h2><div class="inl"><input id="fName" maxlength="20" placeholder="Nickname des Freundes" autocapitalize="none"><button data-act="addf">Hinzufügen</button></div><p class="muted" id="fmsg"></p><div id="fstats"></div></div>'
-  +'<div class="grp"><h2>Freundesgruppen</h2><div class="tabs">'+groups.map(g=>'<button data-act="grp" data-c="'+esc(g.id)+'" class="'+(curG&&curG.id===g.id?"on":"")+'">'+esc(g.name)+'</button>').join("")+'</div>'
-  +'<div class="inl"><input id="gName" maxlength="24" placeholder="Neue Gruppe"><button data-act="create">Erstellen</button></div>'
-  +'<div class="inl"><input id="gCode" maxlength="6" placeholder="Einladungscode" autocapitalize="characters"><button data-act="join">Beitreten</button></div><p class="muted" id="gmsg"></p></div>'
-  +(curG?'<div class="grp"><div class="seg">'+[["week","Woche"],["month","Monat"],["year","Jahr"]].map(x=>'<button data-act="per" data-p="'+x[0]+'" class="'+(period===x[0]?"on":"")+'">'+x[1]+'</button>').join("")+'</div><p class="muted">Einladungscode: <b>'+esc(curG.id)+'</b></p><div id="gstats"></div></div>':"");
-  renderFriendList();
-  if(curG)renderGroup();
+  const n=reqIn.length;
+  let h='<h2>Konto</h2><div class="row"><span>Angemeldet als <b>'+esc(nick)+'</b></span><button class="sm" data-act="logout">Abmelden</button></div>'
+   +'<div class="tabs" style="margin-top:12px"><button data-act="ftab" data-v="f" class="'+(fTab==="f"?"on":"")+'">Freunde'+(n?" ("+n+")":"")+'</button><button data-act="ftab" data-v="g" class="'+(fTab==="g"?"on":"")+'">Gruppen</button></div>';
+  if(fTab==="f"){
+    h+='<div class="inl"><input id="fName" maxlength="20" placeholder="Nickname des Freundes" autocapitalize="none"><button data-act="addf">Anfragen</button></div><p class="muted" id="fmsg"></p>';
+    if(reqIn.length)h+='<h3>Anfragen an dich</h3>'+reqIn.map(x=>'<div class="row"><span><b>'+esc(x.nick)+'</b> möchte mit dir befreundet sein</span><span class="step"><button data-act="acc" data-k="'+esc(x.k)+'" aria-label="Annehmen">✓</button><button data-act="rej" data-k="'+esc(x.k)+'" aria-label="Ablehnen">✕</button></span></div>').join("");
+    if(reqOut.length)h+='<h3>Offene Anfragen von dir</h3>'+reqOut.map(x=>'<div class="row"><span>'+esc(x.nick)+' <small class="muted">wartet auf Antwort</small></span><button class="sm" data-act="wd" data-k="'+esc(x.k)+'">Zurückziehen</button></div>').join("");
+    h+='<div id="fstats"></div>';
+  }else{
+    h+='<div class="tabs">'+groups.map(g=>'<button data-act="grp" data-c="'+esc(g.id)+'" class="'+(curG&&curG.id===g.id?"on":"")+'">'+esc(g.name)+'</button>').join("")+'</div>'
+     +'<div class="inl"><input id="gName" maxlength="24" placeholder="Neue Gruppe"><button data-act="create">Erstellen</button></div>'
+     +'<div class="inl"><input id="gCode" maxlength="6" placeholder="Einladungscode" autocapitalize="characters"><button data-act="join">Beitreten</button></div><p class="muted" id="gmsg"></p>'
+     +(curG?'<div class="seg">'+[["week","Woche"],["month","Monat"],["year","Jahr"]].map(x=>'<button data-act="per" data-p="'+x[0]+'" class="'+(period===x[0]?"on":"")+'">'+x[1]+'</button>').join("")+'</div><p class="muted">Einladungscode: <b>'+esc(curG.id)+'</b></p><div id="gstats"></div>':"");
+  }
+  f.innerHTML=h;
+  if(fTab==="f")renderFriendList();else if(curG)renderGroup();
 }
 function memberHtml(r,extra){
   const t=r.t,sz=id=>GROUPS.find(g=>g.id===id).sizes.map(z=>(t[id+"_"+z[0]]||0)+"× "+z[1]).join(" · ");
@@ -366,9 +386,16 @@ async function fetchRs(ks){
   return ks.map(k=>{const days={};es.filter(x=>x.nick_key===k).forEach(x=>days[x.day]=x.counts);const u=us.find(x=>x.key===k);return{k:k,name:u?u.nick:k,t:totals(days,s,e)}});
 }
 async function loadFriends(){
-  const m=await api("friends?a=eq."+enc(uid)+"&select=b");
-  const us=m.length?await api("users?key=in.("+m.map(x=>enc(x.b)).join(",")+")&select=key,nick"):[];
-  friends=us.map(u=>({k:u.key,nick:u.nick}));
+  const[m,ri,ro]=await Promise.all([api("friends?a=eq."+enc(uid)+"&select=b"),api("friend_requests?to_key=eq."+enc(uid)+"&select=from_key"),api("friend_requests?from_key=eq."+enc(uid)+"&select=to_key")]);
+  const ids=[...new Set(m.map(x=>x.b).concat(ri.map(x=>x.from_key),ro.map(x=>x.to_key)))];
+  const us=ids.length?await api("users?key=in.("+ids.map(enc).join(",")+")&select=key,nick"):[];
+  const nm=k=>{const u=us.find(x=>x.key===k);return{k:k,nick:u?u.nick:k}};
+  friends=m.map(x=>nm(x.b));reqIn=ri.map(x=>nm(x.from_key));reqOut=ro.map(x=>nm(x.to_key));
+}
+const delReq=(f,t)=>api("friend_requests?from_key=eq."+enc(f)+"&to_key=eq."+enc(t),{method:"DELETE"});
+async function acceptReq(k){
+  await api("friends",{method:"POST",headers:UPS,body:[{a:uid,b:k},{a:k,b:uid}]});
+  await delReq(k,uid);await loadFriends();renderFriends();
 }
 async function renderFriendList(){
   const box=$("fstats");if(!box)return;
@@ -429,22 +456,28 @@ $("lb").onclick=ev=>{
 };
 $("friends").onclick=async ev=>{
   const b=ev.target.closest("button");if(!b)return;
-  const a=b.dataset.act,msg=t=>{const m=$("gmsg");if(m)m.textContent=t};
+  const a=b.dataset.act,msg=t=>{const m=$("gmsg");if(m)m.textContent=t},fm=t=>{const m=$("fmsg");if(m)m.textContent=t};
   try{
-    if(a==="logout"){uid=null;nick="";groups=[];curG=null;friends=[];data={};persist();try{localStorage.removeItem("td_user")}catch(e){}renderCal();renderStats();renderFriends();$("nickIn").value="";$("nickOv").classList.add("open")}
+    if(a==="logout"){uid=null;nick="";groups=[];curG=null;friends=[];reqIn=[];reqOut=[];data={};persist();try{localStorage.removeItem("td_user")}catch(e){}renderCal();renderStats();renderFriends();$("nickIn").value="";$("nickOv").classList.add("open")}
     else if(a==="kick"){
       if(!curG||curG.owner!==uid)return;
       if(!confirm(b.dataset.n+" wirklich aus der Gruppe entfernen?"))return;
       await api("members?code=eq."+enc(curG.id)+"&nick_key=eq."+enc(b.dataset.k),{method:"DELETE"});
       renderFriends();
     }
+    else if(a==="ftab"){fTab=b.dataset.v;renderFriends()}
     else if(a==="addf"){
-      const fm=t=>{const m=$("fmsg");if(m)m.textContent=t},v=$("fName").value.trim().toLowerCase();
+      const v=$("fName").value.trim().toLowerCase();
       if(!v)return;if(v===uid){fm("Das bist du selbst.");return}
+      if(friends.some(x=>x.k===v)){fm("Ihr seid schon befreundet.");return}
       const u=await api("users?key=eq."+enc(v)+"&select=key");if(!u.length){fm("Nickname nicht gefunden.");return}
-      await api("friends",{method:"POST",headers:UPS,body:[{a:uid,b:v},{a:v,b:uid}]});
-      await loadFriends();renderFriends();
+      if(reqIn.some(x=>x.k===v)){await acceptReq(v);return}
+      await api("friend_requests",{method:"POST",headers:UPS,body:{from_key:uid,to_key:v}});
+      await loadFriends();renderFriends();fm("Anfrage gesendet.");
     }
+    else if(a==="acc")await acceptReq(b.dataset.k);
+    else if(a==="rej"){await delReq(b.dataset.k,uid);await loadFriends();renderFriends()}
+    else if(a==="wd"){await delReq(uid,b.dataset.k);await loadFriends();renderFriends()}
     else if(a==="delf"){
       if(!confirm(b.dataset.n+" wirklich als Freund entfernen?"))return;
       const k=b.dataset.k;
@@ -466,6 +499,33 @@ $("friends").onclick=async ev=>{
       await loadGroups();curG=groups.find(g=>g.id===c)||curG;renderFriends();
     }
   }catch(err){msg("Das hat nicht geklappt. Bitte erneut versuchen.")}
+};
+let pg=null,pDay="",pDraft={};
+function loadPop(){
+  pDraft=Object.assign({},data[pDay]||{});
+  $("pForm").innerHTML=pg.sizes.map(z=>{const k=pg.id+"_"+z[0];
+    return '<div class="row"><span>'+z[1]+'</span><div class="step"><button data-k="'+k+'" data-d="-1" aria-label="Weniger">−</button><output id="p_'+k+'">'+(pDraft[k]||0)+'</output><button data-k="'+k+'" data-d="1" aria-label="Mehr">+</button></div></div>'}).join("");
+}
+function openPop(gid){
+  pg=GROUPS.find(g=>g.id===gid);if(!pg)return;
+  pDay=key(new Date());$("pTitle").textContent=pg.name;$("pDate").value=pDay;loadPop();
+  $("pOv").classList.add("open");document.body.classList.add("lock");
+}
+function closePop(){$("pOv").classList.remove("open");document.body.classList.remove("lock")}
+$("stats").onclick=e=>{const t=e.target.closest("[data-g]");if(t)openPop(t.dataset.g)};
+$("pDate").onchange=e=>{if(e.target.value){pDay=e.target.value;loadPop()}};
+$("pForm").onclick=e=>{
+  const b=e.target.closest("button");if(!b)return;
+  const k=b.dataset.k;pDraft[k]=Math.max(0,(pDraft[k]||0)+Number(b.dataset.d));$("p_"+k).textContent=pDraft[k];
+};
+$("pCancel").onclick=closePop;
+$("pOv").onclick=e=>{if(e.target===$("pOv"))closePop()};
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closePop()});
+$("pSave").onclick=()=>{
+  const c=Object.assign({},data[pDay]||{});
+  pg.sizes.forEach(z=>{const k=pg.id+"_"+z[0];if(pDraft[k]>0)c[k]=pDraft[k];else delete c[k]});
+  if(Object.keys(c).length)data[pDay]=c;else delete data[pDay];
+  persist();syncDay(pDay,c);closePop();renderStats();renderCal();
 };
 renderCal();renderStats();init();
 </script>
