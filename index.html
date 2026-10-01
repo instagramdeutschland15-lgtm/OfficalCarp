@@ -116,6 +116,8 @@ details.mdet{border-top:1px solid var(--line);padding:2px 0 10px}
 .burger{position:relative}
 .burger .dot{position:absolute;top:7px;right:7px;margin:0}
 .ok{color:#7fe3a0}
+.lbrow.zero{opacity:.5}
+[data-cat].tap::after{content:"›";font-size:1.4rem;top:4px}
 </style>
 </head>
 <body>
@@ -166,6 +168,11 @@ details.mdet{border-top:1px solid var(--line);padding:2px 0 10px}
   <input id="nickIn" maxlength="20" placeholder="Nickname" autocomplete="nickname" autocapitalize="none">
   <p class="muted" id="nickErr"></p>
   <div class="actions"><button id="nickLogin">Anmelden</button><button class="save" id="nickReg">Registrieren</button></div>
+</div></div>
+<div class="overlay" id="cOv" role="dialog" aria-modal="true" aria-labelledby="cTitle"><div class="modal">
+  <h2 id="cTitle"></h2>
+  <div id="cBody"></div>
+  <div class="actions"><button class="save" id="cClose">Schließen</button></div>
 </div></div>
 <div class="overlay" id="pOv" role="dialog" aria-modal="true" aria-labelledby="pTitle"><div class="modal">
   <h2 id="pTitle"></h2>
@@ -250,7 +257,7 @@ const IC={
  shots:SV('<path d="M6 6h12l-1.500 17a2 2 0 0 1-2 2h-5a2 2 0 0 1-2-2z" fill="none" stroke="#cfe0ff" stroke-width="1.4"/><path d="M6.900 13h10.200l-.6 10a2 2 0 0 1-2 2h-5a2 2 0 0 1-2-2z" fill="#ffb347"/>'),
  monster:MI
 };
-const monBox=(v,sub,tap)=>'<div class="liters soft wide'+(tap?' tap" data-g="monster':'')+'">'+MI+' Monster<b>'+v+'</b>'+(sub?'<span class="sub">'+sub+'</span>':"")+'</div>';
+const monBox=(v,sub,tap)=>'<div class="liters soft wide'+(tap?' tap" '+(tap==="cat"?"data-cat":"data-g")+'="monster':'')+'">'+MI+' Monster<b>'+v+'</b>'+(sub?'<span class="sub">'+sub+'</span>':"")+'</div>';
 function renderStats(){
   const{s,e,label}=range();$("rangeLabel").textContent=label;
   const tot=totals(data,s,e);
@@ -424,10 +431,10 @@ async function renderGroup(){
   const{label}=range();box.textContent="Lade…";
   try{
     const mem=await api("members?code=eq."+enc(curG.id)+"&select=nick_key");
-    const rs=await fetchRs(mem.map(x=>x.nick_key));
+    const rs=await fetchRs(mem.map(x=>x.nick_key));grpRs=rs;
     const sum={};rs.forEach(r=>{for(const k in r.t)sum[k]=(sum[k]||0)+r.t[k]});
-    const sh=(id,n)=>'<div class="liters">'+IC[id]+' '+n+'<b>'+(sum[id+"_x"]||0)+'</b></div>';
-    box.innerHTML='<p class="muted">'+esc(label)+' · '+rs.length+' Mitglieder</p><div class="lgrid"><div class="liters">'+IC.bier+' Bier gesamt<b>'+fmt(litOf(sum,"bier"))+' L</b></div><div class="liters">'+IC.cider+' Cider gesamt<b>'+fmt(litOf(sum,"cider"))+' L</b></div>'+monBox(fmt(litOf(sum,"monster"))+" L")+'</div>'
+    const sh=(id,n)=>'<div class="liters tap" data-cat="'+id+'">'+IC[id]+' '+n+'<b>'+(sum[id+"_x"]||0)+'</b></div>';
+    box.innerHTML='<p class="muted">'+esc(label)+' · '+rs.length+' Mitglieder</p><div class="lgrid"><div class="liters tap" data-cat="bier">'+IC.bier+' Bier gesamt<b>'+fmt(litOf(sum,"bier"))+' L</b></div><div class="liters tap" data-cat="cider">'+IC.cider+' Cider gesamt<b>'+fmt(litOf(sum,"cider"))+' L</b></div>'+monBox(fmt(litOf(sum,"monster"))+" L","","cat")+'</div>'
     +'<div class="lgrid three">'+sh("jaeger","Jäger")+sh("mix","Mischen")+sh("shots","Shots")+'</div>'
     +rs.map(r=>{r.owner=curG.owner===r.k;return memberHtml(r,curG.owner===uid&&r.k!==uid?delBtn("kick",r," aus der Gruppe entfernen"):"")}).join("");
   }catch(err){box.textContent="Daten konnten nicht geladen werden."}
@@ -471,6 +478,7 @@ $("lb").onclick=ev=>{
   renderLb();
 };
 $("friends").onclick=async ev=>{
+  const ct=ev.target.closest("[data-cat]");if(ct){openCat(ct.dataset.cat);return}
   const b=ev.target.closest("button");if(!b)return;
   const a=b.dataset.act,msg=t=>{const m=$("gmsg");if(m)m.textContent=t},fm=t=>{const m=$("fmsg");if(m)m.textContent=t};
   try{
@@ -516,6 +524,23 @@ $("friends").onclick=async ev=>{
     }
   }catch(err){const t="Das hat nicht geklappt: "+String(err.message||err).slice(0,160);fm(t);msg(t)}
 };
+let grpRs=[];
+function openCat(id){
+  const g=GROUPS.find(x=>x.id===id),sized=g.sizes[0][2]>0,{label}=range();
+  const rows=grpRs.map(r=>{
+    const n=g.sizes.reduce((a,z)=>a+(r.t[id+"_"+z[0]]||0),0);
+    return{name:r.name,me:r.k===uid,v:sized?litOf(r.t,id):n,sub:sized?g.sizes.filter(z=>r.t[id+"_"+z[0]]).map(z=>r.t[id+"_"+z[0]]+"× "+z[1]).join(" · "):""};
+  }).sort((a,b)=>b.v-a.v);
+  const fv=v=>sized?fmt(v)+" L":v+" "+g.sizes[0][1],tot=rows.reduce((a,x)=>a+x.v,0);
+  $("cTitle").innerHTML=IC[id]+" "+g.name;
+  $("cBody").innerHTML='<p class="muted">'+esc(label)+' · Gesamt: <b>'+fv(tot)+'</b></p>'
+    +rows.map(x=>'<div class="lbrow'+(x.me?" me":"")+(x.v?"":" zero")+'"><b>'+esc(x.name)+(x.me?" (du)":"")+(x.sub?' <small>'+esc(x.sub)+'</small>':"")+'</b><strong>'+fv(x.v)+'</strong></div>').join("");
+  $("cOv").classList.add("open");document.body.classList.add("lock");
+}
+function closeCat(){$("cOv").classList.remove("open");document.body.classList.remove("lock")}
+$("cClose").onclick=closeCat;
+$("cOv").onclick=e=>{if(e.target===$("cOv"))closeCat()};
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeCat()});
 let pg=null,pDay="",pDraft={};
 function loadPop(){
   pDraft=Object.assign({},data[pDay]||{});
