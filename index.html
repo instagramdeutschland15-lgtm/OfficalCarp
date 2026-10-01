@@ -241,6 +241,15 @@ function range(){
 }
 
 const MI=`<span class="mi"><img src="monster-logo.png" alt="" onload="this.nextElementSibling.style.display='none'" onerror="this.remove()"><svg viewBox="0 0 24 28" width="22" height="26" aria-hidden="true"><rect x="5" y="4" width="14" height="21" rx="3" fill="#111" stroke="#95d600" stroke-width="1.5"/><rect x="5" y="2" width="14" height="4" rx="2" fill="#95d600"/><path d="M13 8l-4 7h3l-1 5 4-8h-3z" fill="#95d600"/></svg></span>`;
+const SV=i=>'<span class="mi"><svg viewBox="0 0 24 28" width="22" height="26" aria-hidden="true">'+i+'</svg></span>';
+const IC={
+ bier:SV('<path d="M18 10h2a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" fill="none" stroke="#cfe0ff" stroke-width="1.6"/><path d="M4 8h14v15a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" fill="#f0a500" stroke="#cfe0ff" stroke-width="1.2"/><g fill="#fff"><circle cx="6.5" cy="7" r="3"/><circle cx="10.5" cy="5.5" r="3.4"/><circle cx="14.5" cy="6" r="3"/></g>'),
+ cider:SV('<path d="M5 4h14l-2 19a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2z" fill="none" stroke="#cfe0ff" stroke-width="1.4"/><path d="M6 9h12l-1.3 14a1.6 1.6 0 0 1-1.6 1.5H8.9A1.6 1.6 0 0 1 7.300 23z" fill="#d6e04a"/><circle cx="11" cy="15" r="1" fill="#fff" fill-opacity=".7"/><circle cx="14" cy="19" r="1.2" fill="#fff" fill-opacity=".7"/>'),
+ jaeger:SV('<path d="M10 2h4v5l3.500 4.500V24a2 2 0 0 1-2 2H8.500a2 2 0 0 1-2-2V11.500L10 7z" fill="#2f6b2f" stroke="#cfe0ff" stroke-width="1.2" stroke-linejoin="round"/><rect x="8" y="14" width="8" height="7" rx="1" fill="#e8d9a8"/>'),
+ mix:SV('<path d="M3 5h18l-9 11z" fill="#ff8fa3" stroke="#cfe0ff" stroke-width="1.3" stroke-linejoin="round"/><path d="M12 16v8M7 25h10" stroke="#cfe0ff" stroke-width="1.6" stroke-linecap="round"/><path d="M16.500 1.500L12 10" stroke="#ffd25a" stroke-width="1.5" stroke-linecap="round"/>'),
+ shots:SV('<path d="M6 6h12l-1.500 17a2 2 0 0 1-2 2h-5a2 2 0 0 1-2-2z" fill="none" stroke="#cfe0ff" stroke-width="1.4"/><path d="M6.900 13h10.200l-.6 10a2 2 0 0 1-2 2h-5a2 2 0 0 1-2-2z" fill="#ffb347"/>'),
+ monster:MI
+};
 const monBox=(v,sub,tap)=>'<div class="liters soft wide'+(tap?' tap" data-g="monster':'')+'">'+MI+' Monster<b>'+v+'</b>'+(sub?'<span class="sub">'+sub+'</span>':"")+'</div>';
 function renderStats(){
   const{s,e,label}=range();$("rangeLabel").textContent=label;
@@ -254,9 +263,9 @@ function renderStats(){
     const det=g.sizes.length>1?parts.map(p=>p.n+"× "+p.z[1]).join(", "):g.sizes[0][1];
     return '<div class="stat"><div>'+g.name+'<span>'+det+'</span></div><strong>'+n+'</strong></div>';
   }).join("");
-  const top=tab==="drink"?'<div class="lgrid"><div class="liters tap" data-g="bier">Bier insgesamt<b>'+fmt(lit("bier"))+' L</b></div><div class="liters tap" data-g="cider">Cider insgesamt<b>'+fmt(lit("cider"))+' L</b></div>'+monBox(fmt(lit("monster"))+" L","",true)+'</div>':"";
+  const top=tab==="drink"?'<div class="lgrid"><div class="liters tap" data-g="bier">'+IC.bier+' Bier insgesamt<b>'+fmt(lit("bier"))+' L</b></div><div class="liters tap" data-g="cider">'+IC.cider+' Cider insgesamt<b>'+fmt(lit("cider"))+' L</b></div>'+monBox(fmt(lit("monster"))+" L","",true)+'</div>':"";
   if(tab==="other"){
-    const box=id=>{const g=GROUPS.find(x=>x.id===id),n=tot[id+"_x"]||0;return '<div class="liters tap" data-g="'+id+'">'+g.name+'<b>'+n+' <small>'+g.sizes[0][1]+'</small></b></div>'};
+    const box=id=>{const g=GROUPS.find(x=>x.id===id),n=tot[id+"_x"]||0;return '<div class="liters tap" data-g="'+id+'">'+IC[id]+' '+g.name+'<b>'+n+' <small>'+g.sizes[0][1]+'</small></b></div>'};
     $("stats").innerHTML='<div class="lgrid three">'+ids.map(box).join("")+'</div>';
     return;
   }
@@ -266,7 +275,7 @@ function renderStats(){
 function openDay(dt){
   editing=key(dt);draft=Object.assign({},data[editing]||{});
   $("mTitle").textContent=dt.toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
-  $("form").innerHTML=GROUPS.map(g=>'<div class="grp"><h3>'+g.name+'</h3>'+g.sizes.map(z=>{
+  $("form").innerHTML=GROUPS.map(g=>'<div class="grp"><h3>'+IC[g.id]+' '+g.name+'</h3>'+g.sizes.map(z=>{
     const k=g.id+"_"+z[0];
     return '<div class="row"><span>'+z[1]+'</span><div class="step"><button data-k="'+k+'" data-d="-1" aria-label="Weniger">−</button><output id="o_'+k+'">'+(draft[k]||0)+'</output><button data-k="'+k+'" data-d="1" aria-label="Mehr">+</button></div></div>';
   }).join("")+'</div>').join("");
@@ -377,7 +386,8 @@ function renderFriends(){
 }
 function memberHtml(r,extra){
   const t=r.t,sz=id=>GROUPS.find(g=>g.id===id).sizes.map(z=>(t[id+"_"+z[0]]||0)+"× "+z[1]).join(" · ");
-  const box=(n,v,sub)=>'<div class="liters">'+n+'<b>'+v+'</b>'+(sub?'<span class="sub">'+sub+'</span>':"")+'</div>';
+  const NI={"Bier":"bier","Cider":"cider","Jäger":"jaeger","Mischen":"mix","Shots":"shots"};
+  const box=(n,v,sub)=>'<div class="liters">'+(NI[n]?IC[NI[n]]+' ':"")+n+'<b>'+v+'</b>'+(sub?'<span class="sub">'+sub+'</span>':"")+'</div>';
   const c=id=>t[id+"_x"]||0;
   return '<details class="mdet"><summary><b>'+esc(r.name)+(r.k===uid?" (du)":"")+(r.owner?" · Ersteller":"")+'</b><span>Bier '+fmt(litOf(t,"bier"))+' L · Cider '+fmt(litOf(t,"cider"))+' L</span></summary>'
    +'<div class="lgrid">'+box("Bier",fmt(litOf(t,"bier"))+" L",sz("bier"))+box("Cider",fmt(litOf(t,"cider"))+" L",sz("cider"))+monBox(fmt(litOf(t,"monster"))+" L",sz("monster"))+'</div>'
@@ -416,8 +426,8 @@ async function renderGroup(){
     const mem=await api("members?code=eq."+enc(curG.id)+"&select=nick_key");
     const rs=await fetchRs(mem.map(x=>x.nick_key));
     const sum={};rs.forEach(r=>{for(const k in r.t)sum[k]=(sum[k]||0)+r.t[k]});
-    const sh=(id,n)=>'<div class="liters">'+n+'<b>'+(sum[id+"_x"]||0)+'</b></div>';
-    box.innerHTML='<p class="muted">'+esc(label)+' · '+rs.length+' Mitglieder</p><div class="lgrid"><div class="liters">Bier gesamt<b>'+fmt(litOf(sum,"bier"))+' L</b></div><div class="liters">Cider gesamt<b>'+fmt(litOf(sum,"cider"))+' L</b></div>'+monBox(fmt(litOf(sum,"monster"))+" L")+'</div>'
+    const sh=(id,n)=>'<div class="liters">'+IC[id]+' '+n+'<b>'+(sum[id+"_x"]||0)+'</b></div>';
+    box.innerHTML='<p class="muted">'+esc(label)+' · '+rs.length+' Mitglieder</p><div class="lgrid"><div class="liters">'+IC.bier+' Bier gesamt<b>'+fmt(litOf(sum,"bier"))+' L</b></div><div class="liters">'+IC.cider+' Cider gesamt<b>'+fmt(litOf(sum,"cider"))+' L</b></div>'+monBox(fmt(litOf(sum,"monster"))+" L")+'</div>'
     +'<div class="lgrid three">'+sh("jaeger","Jäger")+sh("mix","Mischen")+sh("shots","Shots")+'</div>'
     +rs.map(r=>{r.owner=curG.owner===r.k;return memberHtml(r,curG.owner===uid&&r.k!==uid?delBtn("kick",r," aus der Gruppe entfernen"):"")}).join("");
   }catch(err){box.textContent="Daten konnten nicht geladen werden."}
@@ -514,7 +524,7 @@ function loadPop(){
 }
 function openPop(gid){
   pg=GROUPS.find(g=>g.id===gid);if(!pg)return;
-  pDay=key(new Date());$("pTitle").textContent=pg.name;$("pDate").value=pDay;loadPop();
+  pDay=key(new Date());$("pTitle").innerHTML=IC[pg.id]+" "+pg.name;$("pDate").value=pDay;loadPop();
   $("pOv").classList.add("open");document.body.classList.add("lock");
 }
 function closePop(){$("pOv").classList.remove("open");document.body.classList.remove("lock")}
