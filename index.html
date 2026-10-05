@@ -118,6 +118,18 @@ details.mdet{border-top:1px solid var(--line);padding:2px 0 10px}
 .ok{color:#7fe3a0}
 .lbrow.zero{opacity:.5}
 [data-cat].tap::after{content:"›";font-size:1.4rem;top:4px}
+#flOv{align-items:center}
+.flbox{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+.flame{width:150px;height:195px;transform-origin:50% 92%;animation:flpop .75s cubic-bezier(.2,1.4,.4,1) both,flick 1.1s .75s ease-in-out infinite,glow 1.5s ease-in-out infinite}
+.fl-n{font-size:4.2rem;font-weight:800;color:#ffb020;line-height:1}
+.fl-n.bump{animation:bump .5s}
+.fl-t{color:var(--text);font-size:1.15rem;font-weight:600;margin-bottom:14px}
+#flGo{min-width:180px;padding:14px;border-radius:12px;border:1px solid var(--accent);background:var(--accent);color:#fff;font-weight:600}
+@keyframes flpop{0%{transform:scale(.2) translateY(50px);opacity:0}60%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
+@keyframes flick{0%,100%{transform:scale(1,1) rotate(-1.5deg)}50%{transform:scale(1.04,.96) rotate(1.5deg)}}
+@keyframes glow{0%,100%{filter:drop-shadow(0 0 14px rgba(255,140,0,.6))}50%{filter:drop-shadow(0 0 30px rgba(255,180,0,.95))}}
+@keyframes bump{50%{transform:scale(1.4)}}
+@media (prefers-reduced-motion:reduce){.flame{animation:none}.fl-n.bump{animation:none}}
 </style>
 </head>
 <body>
@@ -164,10 +176,20 @@ details.mdet{border-top:1px solid var(--line);padding:2px 0 10px}
 </div>
 
 <div class="overlay" id="nickOv" role="dialog" aria-modal="true"><div class="modal">
-  <h2>Anmelden</h2><p class="muted">Gib deinen einzigartigen Nickname ein. Neu hier? Dann registriere ihn.</p>
-  <input id="nickIn" maxlength="20" placeholder="Nickname" autocomplete="nickname" autocapitalize="none">
+  <div class="seg" id="lmTabs"><button data-m="login" class="on">Anmelden</button><button data-m="reg">Registrieren</button></div>
+  <h2 id="lmTitle">Anmelden</h2>
+  <p class="muted" id="lmInfo"></p>
+  <input id="nickIn" maxlength="20" placeholder="Nickname" autocomplete="username" autocapitalize="none">
+  <input id="pwIn" type="password" placeholder="Passwort" autocomplete="current-password" style="margin-top:8px">
+  <input id="pw2In" type="password" placeholder="Passwort wiederholen" autocomplete="new-password" style="margin-top:8px" hidden>
   <p class="muted" id="nickErr"></p>
-  <div class="actions"><button id="nickLogin">Anmelden</button><button class="save" id="nickReg">Registrieren</button></div>
+  <div class="actions"><button class="save" id="lmGo">Weiter</button></div>
+</div></div>
+<div class="overlay" id="flOv" role="dialog" aria-modal="true" aria-label="Wochenend-Streak"><div class="flbox">
+  <svg class="flame" id="flame" viewBox="0 0 100 130" aria-hidden="true"><defs><linearGradient id="fl1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffb21a"/><stop offset="1" stop-color="#ff5a00"/></linearGradient><linearGradient id="fl2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe066"/><stop offset="1" stop-color="#ffa000"/></linearGradient></defs><path d="M50 4C58 28 86 44 86 84C86 110 70 126 50 126C30 126 14 110 14 84C14 62 28 52 34 40C36 52 42 58 46 58C42 40 44 22 50 4Z" fill="url(#fl1)"/><path d="M50 62C54 76 70 84 70 102C70 116 62 124 50 124C38 124 30 116 30 102C30 92 36 88 40 80C42 86 46 88 48 88C46 78 48 70 50 62Z" fill="url(#fl2)"/><path d="M50 92C52 98 59 102 59 110C59 117 55 121 50 121C45 121 41 117 41 110C41 105 44 102 46 98C47 100 49 101 50 101Z" fill="#fff6c8"/></svg>
+  <div class="fl-n" id="flN">0</div>
+  <div class="fl-t" id="flT"></div>
+  <button class="save" id="flGo">Weiter</button>
 </div></div>
 <div class="overlay" id="cOv" role="dialog" aria-modal="true" aria-labelledby="cTitle"><div class="modal">
   <h2 id="cTitle"></h2>
@@ -298,9 +320,11 @@ $("cancel").onclick=close;
 $("ov").onclick=e=>{if(e.target===$("ov"))close()};
 document.addEventListener("keydown",e=>{if(e.key==="Escape")close()});
 $("save").onclick=()=>{
+  const sb=streakOf();
   const clean={};for(const k in draft)if(draft[k]>0)clean[k]=draft[k];
   if(Object.keys(clean).length)data[editing]=clean;else delete data[editing];
   persist();syncDay(editing,clean);close();renderCal();renderStats();
+  const sa=streakOf();if(sa>sb)playFlame(sa,sb);
 };
 $("prevM").onclick=()=>{view.setMonth(view.getMonth()-1);renderCal()};
 $("nextM").onclick=()=>{view.setMonth(view.getMonth()+1);renderCal()};
@@ -343,32 +367,64 @@ async function loadGroups(){
   groups=gs.map(g=>({id:g.code,name:g.name,owner:g.owner}));
   curG=groups.find(g=>curG&&g.id===curG.id)||groups[0]||null;
 }
-async function login(create){
-  const v=$("nickIn").value.trim(),err=$("nickErr");
-  if(!/^[\p{L}\p{N}_.-]{2,20}$/u.test(v)){err.textContent="2–20 Zeichen: Buchstaben, Zahlen, _ . -";return}
-  err.textContent="";
+let lm="login";
+function setLm(m,info){
+  lm=m;
+  $("lmTitle").textContent=m==="reg"?"Registrieren":m==="set"?"Passwort festlegen":"Anmelden";
+  $("lmTabs").style.display=m==="set"?"none":"flex";
+  [...$("lmTabs").children].forEach(x=>x.classList.toggle("on",x.dataset.m===m));
+  $("pw2In").hidden=m==="login";
+  $("pwIn").autocomplete=m==="login"?"current-password":"new-password";
+  $("pwIn").placeholder=m==="login"?"Passwort":"Passwort (mind. 6 Zeichen)";
+  $("nickIn").readOnly=m==="set";
+  $("lmInfo").textContent=info||(m==="reg"?"Wähle einen einzigartigen Nickname und ein Passwort.":m==="set"?"Dein Konto hat noch kein Passwort. Lege jetzt eins fest, um es weiter zu nutzen.":"Melde dich mit Nickname und Passwort an.");
+  $("nickErr").textContent="";
+}
+function showLogin(m,info){setLm(m||"login",info);$("pwIn").value="";$("pw2In").value="";$("nickOv").classList.add("open")}
+$("lmTabs").onclick=e=>{const b=e.target.closest("button");if(b)setLm(b.dataset.m)};
+const rpc=(f,body)=>api("rpc/"+f,{method:"POST",body:body});
+async function go(){
+  const v=$("nickIn").value.trim(),pw=$("pwIn").value,err=$("nickErr");
+  if(!/^[\p{L}\p{N}_.-]{2,20}$/u.test(v)){err.textContent="Nickname: 2–20 Zeichen (Buchstaben, Zahlen, _ . -)";return}
+  if(!pw){err.textContent="Bitte ein Passwort eingeben.";return}
+  if(lm!=="login"){
+    if(pw.length<6){err.textContent="Das Passwort braucht mindestens 6 Zeichen.";return}
+    if(pw!==$("pw2In").value){err.textContent="Die Passwörter stimmen nicht überein.";return}
+  }
+  err.textContent="";const k=v.toLowerCase();let create=false;
   try{
-    const k=v.toLowerCase(),ex=await api("users?key=eq."+enc(k)+"&select=key,nick");
-    if(create){
-      if(ex.length){err.textContent="Dieser Nickname ist schon vergeben.";return}
-      await api("users",{method:"POST",headers:{Prefer:"return=minimal"},body:{key:k,nick:v}});
-    }else if(!ex.length){err.textContent="Nickname nicht gefunden. Bitte erst registrieren.";return}
-    uid=k;nick=create?v:ex[0].nick;
+    if(lm==="reg"){
+      if(!await rpc("auth_register",{k:k,n:v,pw:pw})){err.textContent="Dieser Nickname ist schon vergeben.";return}
+      create=true;
+    }else if(lm==="set"){
+      if(!await rpc("auth_setpw",{k:k,pw:pw})){err.textContent="Das Passwort konnte nicht gesetzt werden.";return}
+    }else{
+      const st=await rpc("auth_status",{k:k});
+      if(st==="none"){err.textContent="Nickname nicht gefunden. Bitte registrieren.";return}
+      if(st==="nopw"){setLm("set");$("pwIn").value="";return}
+      if(!await rpc("auth_login",{k:k,pw:pw})){err.textContent="Nickname oder Passwort ist falsch.";return}
+    }
+    const u=await api("users?key=eq."+enc(k)+"&select=nick");
+    uid=k;nick=u.length?u[0].nick:v;
     try{localStorage.setItem("td_user",JSON.stringify({uid:uid,nick:nick}))}catch(e){}
     $("nickOv").classList.remove("open");
-    await loadData(create);await loadGroups();await loadFriends();renderFriends();
+    await loadData(create);await loadGroups();await loadFriends();renderFriends();dailyFlame();
   }catch(e){err.textContent="Fehler: "+String(e.message||e).slice(0,200)}
 }
-$("nickLogin").onclick=()=>login(false);
-$("nickReg").onclick=()=>login(true);
-$("nickIn").addEventListener("keydown",e=>{if(e.key==="Enter")login(false)});
+$("lmGo").onclick=go;
+["nickIn","pwIn","pw2In"].forEach(id=>$(id).addEventListener("keydown",e=>{if(e.key==="Enter")go()}));
 async function init(){
-  if(!CONF){renderFriends();return}
+  if(!CONF){renderFriends();dailyFlame();return}
   let saved=null;try{saved=JSON.parse(localStorage.getItem("td_user")||"null")}catch(e){}
-  if(!saved){$("nickOv").classList.add("open");return}
+  if(!saved){showLogin("login");return}
   uid=saved.uid;nick=saved.nick;renderFriends();
-  try{await loadData(false);await loadGroups();await loadFriends()}catch(e){console.error(e)}
-  renderFriends();
+  try{
+    const st=await rpc("auth_status",{k:uid});
+    if(st==="none"){uid=null;try{localStorage.removeItem("td_user")}catch(e){}showLogin("login");return}
+    if(st==="nopw"){$("nickIn").value=nick;showLogin("set");return}
+    await loadData(false);await loadGroups();await loadFriends();
+  }catch(e){console.error(e)}
+  renderFriends();dailyFlame();
 }
 function renderFriends(){
   const f=$("friends");updateDot();
@@ -482,7 +538,7 @@ $("friends").onclick=async ev=>{
   const b=ev.target.closest("button");if(!b)return;
   const a=b.dataset.act,msg=t=>{const m=$("gmsg");if(m)m.textContent=t},fm=t=>{const m=$("fmsg");if(m)m.textContent=t};
   try{
-    if(a==="logout"){uid=null;nick="";groups=[];curG=null;friends=[];reqIn=[];reqOut=[];data={};persist();try{localStorage.removeItem("td_user")}catch(e){}renderCal();renderStats();renderFriends();$("nickIn").value="";$("nickOv").classList.add("open")}
+    if(a==="logout"){uid=null;nick="";groups=[];curG=null;friends=[];reqIn=[];reqOut=[];data={};persist();try{localStorage.removeItem("td_user")}catch(e){}renderCal();renderStats();renderFriends();$("nickIn").value="";showLogin("login")}
     else if(a==="kick"){
       if(!curG||curG.owner!==uid)return;
       if(!confirm(b.dataset.n+" wirklich aus der Gruppe entfernen?"))return;
@@ -524,6 +580,37 @@ $("friends").onclick=async ev=>{
     }
   }catch(err){const t="Das hat nicht geklappt: "+String(err.message||err).slice(0,160);fm(t);msg(t)}
 };
+const isAlc=en=>Object.keys(en||{}).some(k=>!k.startsWith("monster_")&&en[k]>0);
+function streakOf(){
+  const t=new Date(),sf=(t.getDay()+2)%7;
+  const fri=o=>new Date(t.getFullYear(),t.getMonth(),t.getDate()-sf-7*o);
+  const ok=f=>[0,1,2].some(i=>isAlc(data[key(new Date(f.getFullYear(),f.getMonth(),f.getDate()+i))]));
+  let o=0;
+  if(!ok(fri(0))){if(sf>2)return 0;o=1}
+  let n=0;while(n<600&&ok(fri(o+n)))n++;
+  return n;
+}
+let flT=null;
+function playFlame(n,from){
+  const num=$("flN"),fl=$("flame");
+  num.textContent=from!==undefined&&from<n?from:n;
+  $("flT").textContent=n===1?"Wochenende in Folge":"Wochenenden in Folge";
+  fl.style.animation="none";void fl.getBoundingClientRect();fl.style.animation="";
+  $("flOv").classList.add("open");
+  clearTimeout(flT);
+  if(from!==undefined&&from<n)flT=setTimeout(()=>{num.textContent=n;num.classList.remove("bump");void num.offsetWidth;num.classList.add("bump");flT=setTimeout(closeFlame,3200)},1100);
+  else flT=setTimeout(closeFlame,4500);
+}
+function closeFlame(){clearTimeout(flT);$("flOv").classList.remove("open")}
+$("flGo").onclick=closeFlame;
+$("flOv").onclick=e=>{if(e.target===$("flOv"))closeFlame()};
+function dailyFlame(){
+  const t=key(new Date()),mk=(uid||"lokal")+":"+t;
+  let last="";try{last=localStorage.getItem("td_flame")||""}catch(e){}
+  if(last===mk)return;
+  try{localStorage.setItem("td_flame",mk)}catch(e){}
+  const n=streakOf();if(n>0)playFlame(n);
+}
 let grpRs=[];
 function openCat(id){
   const g=GROUPS.find(x=>x.id===id),sized=g.sizes[0][2]>0,{label}=range();
@@ -563,10 +650,12 @@ $("pCancel").onclick=closePop;
 $("pOv").onclick=e=>{if(e.target===$("pOv"))closePop()};
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closePop()});
 $("pSave").onclick=()=>{
+  const sb=streakOf();
   const c=Object.assign({},data[pDay]||{});
   pg.sizes.forEach(z=>{const k=pg.id+"_"+z[0];if(pDraft[k]>0)c[k]=pDraft[k];else delete c[k]});
   if(Object.keys(c).length)data[pDay]=c;else delete data[pDay];
   persist();syncDay(pDay,c);closePop();renderStats();renderCal();
+  const sa=streakOf();if(sa>sb)playFlame(sa,sb);
 };
 const sig=()=>reqIn.length+"|"+reqOut.length+"|"+friends.length;
 async function pollFriends(){
